@@ -10,14 +10,26 @@ cloudinary.config({
 const uploadOnCloudinary = async(localFilePath)=>{
     try {
         if(!localFilePath) return null;
-        const response = await cloudinary.uploader.upload(localFilePath,{resource_type: 'auto'});
-        fs.unlink(localFilePath);
+        const response = await cloudinary.uploader.upload(localFilePath,{resource_type:'auto',folder:"chai_backend"});
+        fs.unlinkSync(localFilePath);
         return response;
     } catch (error) {
         fs.unlinkSync(localFilePath);
+        console.log(error);
         // this will remove the localy saved temporary file as upload faild has been faild
         return null;
     }
 }
 
-export {uploadOnCloudinary};
+const deleteOldUploadedImage = async(oldFilePAth)=>{
+    try {
+        if(!oldFilePAth) return null;
+        const response = await cloudinary.uploader.destroy(oldFilePAth);
+        return response;
+    } catch (error) {
+        console.log(error.message);
+        return null;
+    }
+}
+
+export {uploadOnCloudinary,deleteOldUploadedImage};

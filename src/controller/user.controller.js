@@ -1,7 +1,7 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import {ApiError}  from "../utils/ApiError.js";
 import {User} from "../models/user.model.js";
-import {uploadOnCloudinary} from "../utils/cloudinary.js";
+import {deleteOldUploadedImage, uploadOnCloudinary} from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
@@ -14,7 +14,7 @@ const generateAccessAndRefreshToken = async function(userId){
         const refreshToken = user.generateRefreshToken();
 
         user.refershToken = refreshToken;
-        //* this will stop password validation in the user model
+        //* this will stop password encryption in the user model
         await user.save({validateBeforeSave: false});
 
         return {accessToken, refreshToken};
@@ -161,7 +161,7 @@ const refreshAcessToken = asyncHandler(async function(req,res){
     throw new ApiError(401,"Invalid refresh Token");
    }
 
-  if(incommingRefreshToken !== user.refershToken){
+  if(incommingRefreshToken !== user.refreshToken){
     throw new ApiError(401,"Refresh token is expired or used");
   }
 
@@ -220,6 +220,16 @@ const updateAccountDetails = asyncHandler(async function(req,res){
         throw new ApiError(401, "All fields required");
      }
 
+     if(email !== req.user.email){
+        const isEmailPresent = User.findOne({
+            $or:[{email}]
+        })
+
+        if(isEmailPresent){
+            throw new ApiError(400,"Email already exist");
+        }
+     }
+
      const user = await User.findByIdAndUpdate(
         req.user._id,
         {
@@ -240,8 +250,8 @@ const updateAccountDetails = asyncHandler(async function(req,res){
      );
 });
 
-const updateUserAvatar = asyncHandler(async function(req,res,){
-     const avatarLocalPath = req.file.avatar;
+const updateUserAvatar = asyncHandler(async function(req,res){
+     const avatarLocalPath = req.file?.path;
 
      if(!avatarLocalPath){
         throw new ApiError(400,"Avatar file is missing");
@@ -249,7 +259,9 @@ const updateUserAvatar = asyncHandler(async function(req,res,){
 
      const avatar = await uploadOnCloudinary(avatarLocalPath);
 
-     if(!avatar.url){
+     await deleteOldUploadedImage(req.user?.avatar);
+
+     if(!avatar){
         throw new ApiError(400,"Error while uploading avatar")
      }
 
@@ -263,7 +275,7 @@ const updateUserAvatar = asyncHandler(async function(req,res,){
         {
             new: true
         }
-     ).select("-password");
+     ).select("-password -refreshToken");
 
      return res
      .status(200)
@@ -273,7 +285,7 @@ const updateUserAvatar = asyncHandler(async function(req,res,){
 });
 
 const updateUserCoverImage = asyncHandler(async function(req,res,){
-    const coverImageLocalPath = req.file.avatar;
+    const coverImageLocalPath = req.file?.path;
 
     if(!coverImageLocalPath){
        throw new ApiError(400,"Cover imgae file is missing");
@@ -281,7 +293,11 @@ const updateUserCoverImage = asyncHandler(async function(req,res,){
 
     const coverImage = await uploadOnCloudinary(coverImageLocalPath);
 
-    if(!avatar.url){
+    if(req.user?.coverImage){
+        await deleteOldUploadedImage(req.user.coverImage);
+    }
+
+    if(!coverImage.url){
        throw new ApiError(400,"Error while uploading cover image")
     }
 
@@ -295,7 +311,7 @@ const updateUserCoverImage = asyncHandler(async function(req,res,){
        {
            new: true
        }
-    ).select("-password");
+    ).select("-password -refreshToken");
 
     return res
     .status(200)

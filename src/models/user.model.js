@@ -16,7 +16,6 @@ const userSchema = new Schema(
             unique: true,
             lowercase: true,
             trim: true,
-            index: true
         },
         email:{
             type: String,
@@ -35,6 +34,7 @@ const userSchema = new Schema(
         },
         coverImage:{
             type: String,
+            default: undefined
         },
         watchHistory:[
             {
@@ -42,8 +42,9 @@ const userSchema = new Schema(
                 ref: 'Video'
             }
         ],
-        refershToken:{
+        refreshToken:{
             type: String,
+            default: undefined
         }
     },
     {
@@ -75,6 +76,7 @@ userSchema.methods.generateAccessToken = function(){
         }
     )
 };
+
 userSchema.methods.generateRefreshToken = function(){
     return jwt.sign(
         {
